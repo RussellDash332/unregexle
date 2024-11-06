@@ -400,4 +400,4 @@ if __name__ == '__main__':
                  .replace('=', '\\=')
             )
     except Exception as e:
-        logging.info(f'{type(e)}: {e.__name__}')
+        logging.info(f'{type(e).__name__}: {str(e)}')
