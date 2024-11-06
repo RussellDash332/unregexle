@@ -379,22 +379,25 @@ if __name__ == '__main__':
     supplier = {'Windows': get_windows_browser, 'Linux': get_linux_browser}.get(curr_os)
     assert supplier, f'Unregexle not supported for {curr_os} yet :('
 
-    t_parse, t_algo, t_selenium, verdict = loop_resolve(run, lambda: None, ATTEMPT_LIMIT, supplier)
-    print(f'Time to parse Unregexle board: {t_parse}')
-    print(f'Time to run backtracking: {t_algo}')
-    print(f'Time to apply solution: {t_selenium}')
-    print()
-    print(verdict.replace(' '*3, ' '))
+    try:
+        t_parse, t_algo, t_selenium, verdict = loop_resolve(run, lambda: None, ATTEMPT_LIMIT, supplier)
+        print(f'Time to parse Unregexle board: {t_parse}')
+        print(f'Time to run backtracking: {t_algo}')
+        print(f'Time to apply solution: {t_selenium}')
+        print()
+        print(verdict.replace(' '*3, ' '))
 
-    # Telebot integration
-    for chat_id in CHATS.split(','):
-        send(TOKEN, chat_id, f'{verdict}\n\n#unregexle' \
-             .replace('.', '\\.') \
-             .replace('*', '\\*') \
-             .replace('(', '\\(') \
-             .replace(')', '\\)') \
-             .replace('#', '\\#') \
-             .replace('+', '\\+') \
-             .replace('-', '\\-') \
-             .replace('=', '\\=')
-        )
+        # Telebot integration
+        for chat_id in CHATS.split(','):
+            send(TOKEN, chat_id, f'{verdict}\n\n#unregexle' \
+                 .replace('.', '\\.') \
+                 .replace('*', '\\*') \
+                 .replace('(', '\\(') \
+                 .replace(')', '\\)') \
+                 .replace('#', '\\#') \
+                 .replace('+', '\\+') \
+                 .replace('-', '\\-') \
+                 .replace('=', '\\=')
+            )
+    except Exception as e:
+        logging.info(f'{type(e)}: {e.__name__}')
