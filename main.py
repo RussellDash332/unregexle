@@ -50,7 +50,7 @@ def loop_resolve(f, resolution, lim, *args):
     try:
         return f(*args)
     except Exception as e:
-        print('Issue found:', e)
+        print(f'Issue found: {type(e).__name__}: {str(e)}')
         resolution()
         return loop_resolve(f, resolution, lim-1, *args)
 
@@ -93,12 +93,14 @@ def send(token, chat_id, bot_message):
 def parse(html, n=get_size()):
     def handle_qn(s):
         result = []
-        for u in s:
+        for v in s:
             tmp = ['']
-            v = u.split('?')
-            for i in range(len(v)-1):
-                tmp = tmp + [x+v[i] for x in tmp]
-            tmp = [x+v[-1] for x in tmp]
+            for i in range(len(v)):
+                if v[i] == '?': continue
+                if i < len(v)-1 and v[i+1] == '?':
+                    tmp = tmp + [x+v[i] for x in tmp]
+                else:
+                    tmp = [x+v[i] for x in tmp]
             result.extend(tmp)
         return result
 
@@ -108,12 +110,10 @@ def parse(html, n=get_size()):
             for k in range(2*n-1):
                 for rule in hexagon.findAll('div', id=f'rule_{ax}_{k}'):
                     text = rule.text.strip()
-                    if len(text) == 2: # .*
-                        rules[ax][k] = {'mode': 0}
-                    elif text[0] == '(': # (r1|r2|...)+
+                    if text[0] == '.': # .*r1.*r2.*
+                        rules[ax][k] = {'mode': 0, 'contains': [s for s in text.split('.*') if s]}
+                    else: # (r1|r2|...)+
                         rules[ax][k] = {'mode': 1, 'candidates': handle_qn(text[1:-2].split('|'))}
-                    else: # .*r.*
-                        rules[ax][k] = {'mode': 2, 'contains': [s for s in text.split('.*') if s]}
     for ax in rules:
         rules[ax] = [rules[ax][k] for k in range(2*n-1)]
     return rules
@@ -122,7 +122,7 @@ def solve(rules, n=get_size()):
     def display():
         ans = []
         for i in range(2*n-1):
-            for h in hexagons[i]: ans.append(h.get('v', '?'))
+            for h in hexagons[i]: ans.append(h.get('v', '.'))
         return ''.join(ans)
 
     hexagons = [[{} for _ in range(2*n-1-abs(n-1-i))] for i in range(2*n-1)]
@@ -153,8 +153,8 @@ def solve(rules, n=get_size()):
             idx -= 1
 
     # The strategy is that we try to keep using mode 1 to solve,
-    # and then fill the gaps with mode 2
-    for _ in range(n):
+    # and then fill the gaps with mode 0
+    for _ in range(2*n):
         # Start with the corner hexagons first
         pos = [(i, j) for i in (0, n-1, -1) for j in (0, -1)]
         for i, j in pos:
@@ -226,13 +226,39 @@ def solve(rules, n=get_size()):
         def new_sw(tmp, c):
             if len(tmp) < len(c): return False
             for i in range(len(c)):
-                if tmp[i] != '?' and tmp[i] != c[i]: return False
+                if tmp[i] != '.' and tmp[i] != c[i]: return False
             return True
         def new_ew(tmp, c):
             if len(tmp) < len(c): return False
             for i in range(len(c)):
-                if tmp[-i-1] != '?' and tmp[-i-1] != c[-i-1]: return False
+                if tmp[-i-1] != '.' and tmp[-i-1] != c[-i-1]: return False
             return True
+        def derive_candidates(tmp, candidates):
+            possible = set()
+            def backtrack(tmp_idx):
+                if tmp_idx == len(tmp): return possible.add(tuple(tmp))
+                for cand in candidates:
+                    if tmp_idx+len(cand) > len(tmp): continue
+                    # check if you can put here
+                    can_put = True
+                    for i in range(len(cand)):
+                        if cand[i] != tmp[tmp_idx+i] and tmp[tmp_idx+i] != '.': can_put = False; break
+                    if can_put:
+                        original = []
+                        for i in range(len(cand)):
+                            original.append(tmp[tmp_idx+i])
+                            tmp[tmp_idx+i] = cand[i]
+                        backtrack(tmp_idx+len(original))
+                        for i in range(len(original)):
+                            tmp[tmp_idx+i] = original[i]
+            backtrack(0)
+            sols = [set() for _ in range(len(tmp))]
+            for p in possible:
+                for i in range(len(tmp)): sols[i].add(p[i])
+            res = ['.']*len(tmp)
+            for i in range(len(tmp)):
+                if len(sols[i]) == 1: res[i] = sols[i].pop()
+            return res
         for ax in 'xyz':
             for k in range(2*n-1):
                 if rules[ax][k]['mode'] != 1: continue
@@ -242,7 +268,7 @@ def solve(rules, n=get_size()):
                     t = (ax, k, idx)
                     if t not in reverse_map: break
                     i, j = reverse_map[t]
-                    tmp.append(hexagons[i][j].get('v', '?'))
+                    tmp.append(hexagons[i][j].get('v', '.'))
                     idx += 1
                 tmp = ''.join(tmp)
                 ori_tmp = tmp
@@ -269,11 +295,72 @@ def solve(rules, n=get_size()):
                         tmp = ori_tmp[p:q]
                     else:
                         break
+                tmp = list(ori_tmp)
+                candidates = '^('+'|'.join(cc)+')+$'
+                if tmp.count('.') == 1:
+                    idx = tmp.index('.')
+                    i, j = reverse_map[(ax, k, idx)]
+                    if 'v' in hexagons[i][j]: continue
+                    ok = []
+                    for t in string.ascii_uppercase:
+                        tmp[idx] = t
+                        if re.match(candidates, ''.join(tmp)): ok.append(t)
+                    # check against other axes with mode 1
+                    ok2 = []
+                    for tt in ok:
+                        ok2.append(tt)
+                        for ax2 in 'xyz':
+                            k2, _ = hexagons[i][j][ax2]
+                            tmp2 = []
+                            idx = 0
+                            tmp2 = []
+                            while True:
+                                t = (ax2, k2, idx)
+                                if t not in reverse_map: break
+                                ii, jj = reverse_map[t]
+                                if (i, j) == (ii, jj): tmp2.append(tt)
+                                else: tmp2.append(hexagons[ii][jj].get('v', '.'))
+                                idx += 1
+                            if rules[ax2][k2]['mode'] == 0:
+                                regex = '.*'.join(['']+rules[ax2][k2]['contains']+[''])
+                            else:
+                                regex = '^('+'|'.join(rules[ax2][k2]['candidates'])+')+$'
+                            if not re.match(regex, ''.join(tmp2)): ok2.pop(); break
+                    if len(ok2) == 1: hexagons[i][j]['v'] = ok2[0]
+                else:
+                    sol = derive_candidates(tmp, cc)
+                    if sol == None: continue
+                    for m in range(len(sol)):
+                        if sol[m] == '.': continue
+                        i, j = reverse_map[(ax, k, m)]
+                        hexagons[i][j]['v'] = sol[m]
 
-        # Fill gap with mode 2: to be improved
+        # Fill gap with mode 0: to be improved
+        def derive_gaps(tmp, contains_list):
+            if not contains_list: return
+            possible = set()
+            def backtrack(contains_idx, tmp_idx):
+                if contains_idx == len(contains_list): return possible.add(tuple(tmp))
+                if tmp_idx >= len(tmp) or tmp_idx+len(contains_list[contains_idx]) > len(tmp): return
+                # check if you can put here
+                can_put = True
+                for i in range(len(contains_list[contains_idx])):
+                    if contains_list[contains_idx][i] != tmp[tmp_idx+i] and tmp[tmp_idx+i] != '.': can_put = False; break
+                if can_put:
+                    original = []
+                    for i in range(len(contains_list[contains_idx])):
+                        original.append(tmp[tmp_idx+i])
+                        tmp[tmp_idx+i] = contains_list[contains_idx][i]
+                    backtrack(contains_idx+1, tmp_idx+len(original))
+                    for i in range(len(original)):
+                        tmp[tmp_idx+i] = original[i]
+                backtrack(contains_idx, tmp_idx+1)
+            backtrack(0, 0)
+            if len(possible) == 1:
+                return possible.pop()
         for ax in 'xyz':
             for k in range(2*n-1):
-                if rules[ax][k]['mode'] != 2: continue
+                if rules[ax][k]['mode'] != 0: continue
                 contains = '.*'.join(['']+rules[ax][k]['contains']+[''])
                 idx = 0
                 tmp = []
@@ -281,15 +368,24 @@ def solve(rules, n=get_size()):
                     t = (ax, k, idx)
                     if t not in reverse_map: break
                     i, j = reverse_map[t]
-                    tmp.append(hexagons[i][j].get('v', '?'))
+                    tmp.append(hexagons[i][j].get('v', '.'))
                     idx += 1
-                if tmp.count('?') == 1:
-                    idx = tmp.index('?')
+                if tmp.count('.') == 1:
+                    idx = tmp.index('.')
+                    i, j = reverse_map[(ax, k, idx)]
+                    if 'v' in hexagons[i][j]: continue
+                    ok = []
                     for t in string.ascii_uppercase:
                         tmp[idx] = t
-                        if re.match(contains, ''.join(tmp)): break
-                    i, j = reverse_map[(ax, k, idx)]
-                    hexagons[i][j]['v'] = t
+                        if re.match(contains, ''.join(tmp)): ok.append(t)
+                    if len(ok) == 1: hexagons[i][j]['v'] = ok[0]
+                else:
+                    sol = derive_gaps(tmp, rules[ax][k]['contains'])
+                    if sol == None: continue
+                    for m in range(len(sol)):
+                        if sol[m] == '.': continue
+                        i, j = reverse_map[(ax, k, m)]
+                        hexagons[i][j]['v'] = sol[m]
 
         # Final sanity check
         filled = 0
@@ -297,7 +393,6 @@ def solve(rules, n=get_size()):
             for h in hexagons[i]:
                 filled += 'v' in h
         if filled == 3*n**2-3*n+1: break
-
     return display()
 
 def format_answer(answer, n=get_size(), space=True):
@@ -306,7 +401,7 @@ def format_answer(answer, n=get_size(), space=True):
     for i in range(2*n-1):
         tmp = [' '*abs(n-1-i)]
         for j in range(2*n-1-abs(n-1-i)):
-            tmp.append((answer[idx] if idx < len(answer) else '?')+' '*space)
+            tmp.append((answer[idx] if idx < len(answer) else '.')+' '*space)
             idx += 1
         rows.append(''.join(tmp))
     return '\n'.join(rows)
@@ -315,7 +410,7 @@ def run(supplier):
     # start browser
     browser = supplier()
     browser.maximize_window()
-    browser.set_page_load_timeout(20)
+    browser.set_page_load_timeout(30)
     size = get_size()
     day = get_day()
     try:
@@ -353,10 +448,12 @@ def run(supplier):
     t3 = time.time()
     hexagons = browser.find_elements(By.CLASS_NAME, 'board_entry')
     chains = ActionChains(browser)
-    for idx, hexagon in enumerate(hexagons):
-        if idx < len(answer): chains.click(hexagon).send_keys(answer[idx])  
+    chains.click(hexagons[0])
+    for idx in range(min(len(answer), len(hexagons))):
+        chains.send_keys(answer[idx])  
     chains.perform()
     logging.info(f'Solution for Regexle size {size} applied!')
+    time.sleep(5)
 
     # share results! reload browser page
     t4 = time.time()
@@ -398,6 +495,6 @@ if __name__ == '__main__':
                  .replace('+', '\\+') \
                  .replace('-', '\\-') \
                  .replace('=', '\\=')
-            )
+                )
     except Exception as e:
         logging.info(f'{type(e).__name__}: {str(e)}')
