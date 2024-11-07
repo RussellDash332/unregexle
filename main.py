@@ -6,7 +6,6 @@ import re
 import requests
 import sys
 import time
-from pprint import pprint
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver import Keys, ActionChains
@@ -83,7 +82,6 @@ def parse(html, n):
 
     For each three axes x, y, and z, there are 2n-1 rules, we will parse these accordingly too.
     '''
-
     def handle_qn_and_sq(s):
         pre_result = []
         for v in s:
@@ -112,7 +110,6 @@ def parse(html, n):
                 idx += 1
             result.extend(tmp)
         return result
-        
 
     rules = {ax:{} for ax in 'xyz'}
     for hexagon in html.findAll('div', class_='hexagon_center'):
@@ -129,15 +126,6 @@ def parse(html, n):
     return rules
 
 def solve(rules, n):
-    def display():
-        '''
-        Helper function to display the current answer based on the state of `hexagons`
-        '''
-        ans = []
-        for i in range(2*n-1):
-            for h in hexagons[i]: ans.append(h.get('v', '.'))
-        return ''.join(ans)
-
     hexagons = [[{} for _ in range(2*n-1-abs(n-1-i))] for i in range(2*n-1)]
     rule2hexagon = {}
 
@@ -212,13 +200,14 @@ def solve(rules, n):
 
             There are still too many valid outcomes from this, so nothing happens
         '''
-
         if not blocks:
             return
-        candidates = set()
+        sols = [set() for _ in range(len(tmp))]
         def backtrack(block_idx, tmp_idx):
             if block_idx == len(blocks):
-                return candidates.add(tuple(tmp))
+                for i in range(len(tmp)):
+                    sols[i].add(tmp[i])
+                return
             if tmp_idx >= len(tmp) or tmp_idx+len(blocks[block_idx]) > len(tmp):
                 return
             can_put = True
@@ -231,15 +220,15 @@ def solve(rules, n):
                 for i in range(len(blocks[block_idx])):
                     original.append(tmp[tmp_idx+i])
                     tmp[tmp_idx+i] = blocks[block_idx][i]
-                if len(candidates) < 2:
-                    backtrack(block_idx+1, tmp_idx+len(original))
+                backtrack(block_idx+1, tmp_idx+len(original))
                 for i in range(len(original)):
                     tmp[tmp_idx+i] = original[i]
-            if len(candidates) < 2:
-                backtrack(block_idx, tmp_idx+1)
+            backtrack(block_idx, tmp_idx+1)
+        result = list(tmp)
         backtrack(0, 0)
-        if len(candidates) == 1:
-            return candidates.pop()
+        for i in range(len(tmp)):
+            if len(sols[i]) == 1: result[i] = sols[i].pop()
+        return result
 
     def derive_mode_1(tmp, blocks):
         '''
@@ -263,7 +252,6 @@ def solve(rules, n):
             Similar to Example 1 but the 'E' is the only obvious one
             ['E', 'A', 'B', 'C', '.', '.']
         '''
-
         sols = [set() for _ in range(len(tmp))]
         seen = {}
         def backtrack(tmp_idx, blk):
@@ -313,6 +301,39 @@ def solve(rules, n):
                             i, j = rule2hexagon[(ax, k, m)]
                             hexagons[i][j]['v'] = sol[m]
 
+    def validate():
+        '''
+        Validate current answer with the regex rules
+        '''
+        ok = True
+        for ax in 'xyz':
+            for k in range(2*n-1):
+                idx, tmp = 0, []
+                while (rule_pos:=(ax, k, idx)) in rule2hexagon:
+                    i, j = rule2hexagon[rule_pos]
+                    tmp.append(hexagons[i][j].get('v', '.'))
+                    idx += 1
+                if rules[ax][k][0] == 0:
+                    regex = '.*'+'.*'.join(rules[ax][k][1])+'.*'
+                else:
+                    regex = '^('+'|'.join(rules[ax][k][1])+')+$'
+                tmp = ''.join(tmp)
+                match = re.match(regex, tmp)
+                if not match:
+                    ok = False
+                    print(ax, k, regex, tmp, flush=True)
+        return ok
+
+    def display():
+        '''
+        Helper function to display the current answer based on the state of `hexagons`
+        '''
+
+        ans = []
+        for i in range(2*n-1):
+            for h in hexagons[i]: ans.append(h.get('v', '.'))
+        return ''.join(ans)
+
     def debug_hexagon():
         print(format_answer(display(), n), flush=True)
         print(flush=True)
@@ -325,7 +346,7 @@ def solve(rules, n):
         handle_corner()
         derive_middle()
         #debug_hexagon()
-    return display()
+    return display(), validate()
 
 def format_answer(answer, n, space=True, spoiler=False):
     idx = 0
@@ -371,13 +392,16 @@ def run(n, day, spoiler, supplier):
 
     # prep Unregexle
     t2 = time.time()
-    answer = solve(rules, n)
+    answer, correct = solve(rules, n)
     logging.info('Candidate answer:\n')
     print(format_answer(answer, n), flush=True)
     print(flush=True)
 
     # apply solution!
     t3 = time.time()
+    if not correct:
+        print('Unregexle is not powerful enough to solve this menace :(\n', flush=True)
+        return round(t2-t1, 5), round(t3-t2, 5), None, None
     hexagons = browser.find_elements(By.CLASS_NAME, 'board_entry')
     chains = ActionChains(browser)
     chains.click(hexagons[0])
@@ -421,19 +445,20 @@ def main(n, day, spoiler):
 
     print(f'Time to parse Unregexle board: {t_parse}', flush=True)
     print(f'Time to run backtracking: {t_algo}', flush=True)
-    print(f'Time to apply solution: {t_selenium}\n', flush=True)
-    print(verdict.replace(' '*3, ' '), flush=True)
+    if verdict != None:
+        print(f'Time to apply solution: {t_selenium}\n', flush=True)
+        print(verdict.replace(' '*3, ' '), flush=True)
 
-    # Telebot integration
-    for chat_id in CHATS.split(','):
-        send(TOKEN, chat_id, f'{verdict}\n\n#unregexle' \
-                .replace('.', '\\.') \
-                .replace('*', '\\*') \
-                .replace('#', '\\#') \
-                .replace('+', '\\+') \
-                .replace('-', '\\-') \
-                .replace('=', '\\=')
-            )
+        # Telebot integration
+        for chat_id in CHATS.split(','):
+            send(TOKEN, chat_id, f'{verdict}\n\n#unregexle' \
+                    .replace('.', '\\.') \
+                    .replace('*', '\\*') \
+                    .replace('#', '\\#') \
+                    .replace('+', '\\+') \
+                    .replace('-', '\\-') \
+                    .replace('=', '\\=')
+                )
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='unregexle', description='Solve Regexle in no time')
