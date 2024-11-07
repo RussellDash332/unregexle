@@ -120,9 +120,9 @@ def parse(html, n):
                 for rule in hexagon.findAll('div', id=f'rule_{ax}_{k}'):
                     text = rule.text.strip()
                     if text[0] == '.':
-                        rules[ax][k] = (0, [s for s in text.split('.*') if s])  # .*r1.*r2.*
+                        rules[ax][k] = (0, [s for s in text.split('.*') if s], text)        # .*r1.*r2.*
                     else:
-                        rules[ax][k] = (1, handle_qn_and_sq(text[1:-2].split('|')))    # (r1|r2|...)+
+                        rules[ax][k] = (1, handle_qn_and_sq(text[1:-2].split('|')), text)   # (r1|r2|...)+
     for ax in rules:
         rules[ax] = [rules[ax][k] for k in range(2*n-1)]
     return rules
@@ -154,7 +154,7 @@ def solve(rules, n):
             hexagons[-j-1][i-max(j-n+1, 0)]['z'] = (i, idx)
             rule2hexagon[('z', i, idx)] = ((-j-1)%(2*n-1), i-max(j-n+1, 0))
             idx -= 1
-    
+
     def handle_outer():
         pos = [(i, j) for i in range(2*n-1) for j in range(len(hexagons[i])) if i in (0, 2*n-2) or j in (0, len(hexagons[i])-1)]
         for i, j in pos:
@@ -340,24 +340,18 @@ def solve(rules, n):
         '''
         ok = True
         for ax, k in checks:
-            tmp = get_current_exp(ax, k)
-            if rules[ax][k][0] == 0:
-                regex = '.*'+'.*'.join(rules[ax][k][1])+'.*'
-            else:
-                regex = '^('+'|'.join(rules[ax][k][1])+')+$'
-            tmp = ''.join(tmp)
-            match = re.match(regex, tmp)
-            if not match:
+            tmp = ''.join(get_current_exp(ax, k))
+            rule = '^' + rules[ax][k][2] + '$'
+            if not re.match(rule, tmp):
                 ok = False
                 if verbose:
-                    print(ax, k, regex, tmp, flush=True)
+                    print(ax, k, rule, tmp, flush=True)
         return ok
 
     def display():
         '''
         Helper function to display the current answer based on the state of `hexagons`
         '''
-
         ans = []
         for i in range(2*n-1):
             for h in hexagons[i]: ans.append(h.get('v', '.'))
