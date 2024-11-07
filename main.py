@@ -369,7 +369,7 @@ def run(n, day, supplier):
     except Exception as e:
         logging.info(f'{type(e).__name__}: {e}')
         browser.quit()
-        return run(supplier)
+        return run(n, day, supplier)
 
     # parse source page
     t1 = time.time()
@@ -377,7 +377,6 @@ def run(n, day, supplier):
     soup = BeautifulSoup(browser.page_source, 'html.parser')
     rules = parse(soup, n)
     logging.info(f'Ruleset obtained!')
-    pprint(rules)
 
     # prep Unregexle
     t2 = time.time()
@@ -401,7 +400,6 @@ def run(n, day, supplier):
             chains.perform() # to avoid timeout error
     chains.perform()
     logging.info(f'Solution for Regexle size {n} applied!')
-    time.sleep(3)
 
     # share results! reload browser page
     t4 = time.time()
