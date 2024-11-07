@@ -19,7 +19,7 @@ jobs:
           sudo apt install -y chromium-browser
           pip install -r requirements.txt
       - name: It's Regexle time!
-        run: for side in {1..32}; do python main.py -n $side; done
+        run: for side in {1..32}; do python main.py -n $side -q 1; done
         env:
           TOKEN: ${{ secrets.TOKEN }}
           CHATS: ${{ secrets.CHATS }}

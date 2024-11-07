@@ -4,6 +4,7 @@ import os
 import platform
 import re
 import requests
+import string
 import sys
 import time
 from bs4 import BeautifulSoup
@@ -40,7 +41,7 @@ def loop_resolve(f, resolution, lim, *args):
 def get_windows_browser():
     service = Service()
     options = webdriver.ChromeOptions()
-    #options.add_argument('--headless')
+    options.add_argument('--headless')
     options.add_experimental_option('excludeSwitches', ['enable-logging'])
     browser = webdriver.Chrome(service=service, options=options)
     return browser
@@ -286,14 +287,21 @@ def solve(rules, n):
                 tmp[i] = sols[i].pop()
         return tmp
 
+    def get_current_exp(ax, k):
+        '''
+        Helper function to get the state of row `k` in the given axis `ax`
+        '''
+        idx, tmp = 0, []
+        while (rule_pos:=(ax, k, idx)) in rule2hexagon:
+            i, j = rule2hexagon[rule_pos]
+            tmp.append(hexagons[i][j].get('v', '.'))
+            idx += 1
+        return tmp
+
     def derive_middle():
         for ax in 'xyz':
             for k in range(2*n-1):
-                idx, tmp = 0, []
-                while (rule_pos:=(ax, k, idx)) in rule2hexagon:
-                    i, j = rule2hexagon[rule_pos]
-                    tmp.append(hexagons[i][j].get('v', '.'))
-                    idx += 1
+                tmp = get_current_exp(ax, k)
                 sol = [derive_mode_0, derive_mode_1][rules[ax][k][0]](tmp, rules[ax][k][1])
                 if sol != None:
                     for m in range(len(sol)):
@@ -301,26 +309,44 @@ def solve(rules, n):
                             i, j = rule2hexagon[(ax, k, m)]
                             hexagons[i][j]['v'] = sol[m]
 
-    def validate():
+    def cancel_noise():
+        '''
+        If there is only one spot left, doesn't hurt to try all 26 uppercase letters!
+        This should resolve the issues found on smaller boards with non-unique solutions (e.g. n=2 or n=3)
+        '''
+        for i in range(2*n-1):
+            for j in range(len(hexagons[i])):
+                h = hexagons[i][j]
+                if 'v' not in h:
+                    dot_counts = set()
+                    checks = []
+                    for ax in 'xyz':
+                        k, _ = h[ax]
+                        checks.append((ax, k))
+                        tmp = get_current_exp(ax, k)
+                        dot_counts.add(tmp.count('.'))
+                    if dot_counts == {1}:
+                        for u in string.ascii_uppercase:
+                            hexagons[i][j]['v'] = u
+                            if validate(checks, verbose=False):
+                                break
+
+    def validate(checks=[(ax, k) for ax in 'xyz' for k in range(2*n-1)], verbose=True):
         '''
         Validate current answer with the regex rules
         '''
         ok = True
-        for ax in 'xyz':
-            for k in range(2*n-1):
-                idx, tmp = 0, []
-                while (rule_pos:=(ax, k, idx)) in rule2hexagon:
-                    i, j = rule2hexagon[rule_pos]
-                    tmp.append(hexagons[i][j].get('v', '.'))
-                    idx += 1
-                if rules[ax][k][0] == 0:
-                    regex = '.*'+'.*'.join(rules[ax][k][1])+'.*'
-                else:
-                    regex = '^('+'|'.join(rules[ax][k][1])+')+$'
-                tmp = ''.join(tmp)
-                match = re.match(regex, tmp)
-                if not match:
-                    ok = False
+        for ax, k in checks:
+            tmp = get_current_exp(ax, k)
+            if rules[ax][k][0] == 0:
+                regex = '.*'+'.*'.join(rules[ax][k][1])+'.*'
+            else:
+                regex = '^('+'|'.join(rules[ax][k][1])+')+$'
+            tmp = ''.join(tmp)
+            match = re.match(regex, tmp)
+            if not match:
+                ok = False
+                if verbose:
                     print(ax, k, regex, tmp, flush=True)
         return ok
 
@@ -345,6 +371,7 @@ def solve(rules, n):
     for _ in range(2*n):
         handle_corner()
         derive_middle()
+        cancel_noise()
         #debug_hexagon()
     return display(), validate()
 
@@ -361,7 +388,7 @@ def format_answer(answer, n, space=True, spoiler=False):
         rows.append(''.join(tmp))
     return '\n'.join(rows)
 
-def run(n, day, spoiler, supplier):
+def run(n, day, spoiler, quick, supplier):
     # start browser
     browser = supplier()
     browser.maximize_window()
@@ -381,7 +408,7 @@ def run(n, day, spoiler, supplier):
     except Exception as e:
         logging.info(f'{type(e).__name__}: {e}')
         browser.quit()
-        return run(n, day, spoiler, supplier)
+        return run(n, day, spoiler, quick, supplier)
 
     # parse source page
     t1 = time.time()
@@ -401,6 +428,13 @@ def run(n, day, spoiler, supplier):
     t3 = time.time()
     if not correct:
         print('Unregexle is not powerful enough to solve this menace :(\n', flush=True)
+        return round(t2-t1, 5), round(t3-t2, 5), None, None
+    if quick:
+        print(f'Unregexle has solved Regexle side={n}\n', flush=True)
+        message = '\n'.join([
+            f'[regexle.com]({link})',
+            format_answer(answer, n, spoiler=True)
+        ])
         return round(t2-t1, 5), round(t3-t2, 5), None, None
     hexagons = browser.find_elements(By.CLASS_NAME, 'board_entry')
     chains = ActionChains(browser)
@@ -436,12 +470,12 @@ def run(n, day, spoiler, supplier):
     logging.info(f'All done!')
     return round(t2-t1, 5), round(t3-t2, 5), round(t4-t3, 5), '\n'.join(contents)
 
-def main(n, day, spoiler):
+def main(n, day, spoiler, quick):
     curr_os = (pf:=platform.platform())[:pf.find('-')]
     supplier = {'Windows': get_windows_browser, 'Linux': get_linux_browser}.get(curr_os)
     assert supplier, f'Unregexle not supported for {curr_os} yet :('
 
-    t_parse, t_algo, t_selenium, verdict = loop_resolve(run, lambda: None, ATTEMPT_LIMIT, n, day, spoiler, supplier)
+    t_parse, t_algo, t_selenium, verdict = loop_resolve(run, lambda: None, ATTEMPT_LIMIT, n, day, spoiler, quick, supplier)
 
     print(f'Time to parse Unregexle board: {t_parse}', flush=True)
     print(f'Time to run backtracking: {t_algo}', flush=True)
@@ -465,7 +499,8 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--side', default=3, help='Size of puzzle (1-32)')
     parser.add_argument('-d', '--day', default='', help='Day of puzzle')
     parser.add_argument('-s', '--spoiler', default=0, help='Enable spoilers in output (0 or 1)')
+    parser.add_argument('-q', '--quick', default=0, help='Enable quick mode to ignore the Selenium typing part (0 or 1)')
     args = parser.parse_args()
     n = int(args.side)
     assert 1 <= n <= 32, 'Size must be between 1 and 32 inclusively'
-    main(n, args.day, int(args.spoiler))
+    main(n, args.day, int(args.spoiler), int(args.quick))
