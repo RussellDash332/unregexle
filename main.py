@@ -15,6 +15,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
+os.environ['WDM_LOG'] = '0'
 try:    TOKEN, CHATS = os.environ['TOKEN'], os.environ['CHATS']
 except: from env import TOKEN, CHATS
 
