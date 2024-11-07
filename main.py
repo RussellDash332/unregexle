@@ -164,6 +164,8 @@ def solve(rules, n):
                 if rule[0] == 1:
                     # add either first character or last character for each block
                     checks.append(set(blk[-(pos!=0)] for blk in rule[1]))
+            if not checks:
+                continue
             candidates = checks[0]
             for k in range(1, len(checks)):
                 candidates &= checks[k]
