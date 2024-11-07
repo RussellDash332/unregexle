@@ -155,14 +155,14 @@ def solve(rules, n):
             rule2hexagon[('z', i, idx)] = ((-j-1)%(2*n-1), i-max(j-n+1, 0))
             idx -= 1
     
-    def handle_corner():
-        pos = [(i, j) for i in (0, n-1, -1) for j in (0, -1)]
+    def handle_outer():
+        pos = [(i, j) for i in range(2*n-1) for j in range(len(hexagons[i])) if i in (0, 2*n-2) or j in (0, len(hexagons[i])-1)]
         for i, j in pos:
             checks = []
             for ax in 'xyz':
                 k, pos = hexagons[i][j][ax]
                 rule = rules[ax][k]
-                if rule[0] == 1:
+                if rule[0] == 1 and ((ax, k, pos-1) not in rule2hexagon or (ax, k, pos+1) not in rule2hexagon):
                     # add either first character or last character for each block
                     checks.append(set(blk[-(pos!=0)] for blk in rule[1]))
             if not checks:
@@ -175,7 +175,7 @@ def solve(rules, n):
                 for ax in 'xyz':
                     k, pos = hexagons[i][j][ax]
                     rule = rules[ax][k]
-                    if rule[0] == 1:
+                    if rule[0] == 1 and ((ax, k, pos-1) not in rule2hexagon or (ax, k, pos+1) not in rule2hexagon):
                         valid_blocks = list(filter(lambda blk: blk[-(pos!=0)] == v, rule[1]))
                         if len(valid_blocks) == 1:
                             # we can fill the other dots with the entire block
@@ -367,12 +367,12 @@ def solve(rules, n):
         print(format_answer(display(), n), flush=True)
         print(flush=True)
 
-    # The strategy is to start from the corner hexagons first because it's easier to derive,
+    # The strategy is to start from the outer hexagons first because it's easier to derive,
     # then continue to derive the remaining hexagons when possible.
     # Repeat for sufficiently many times to handle propagated information
     # and then we should be good!
     for _ in range(2*n):
-        handle_corner()
+        handle_outer()
         derive_middle()
         cancel_noise()
         #debug_hexagon()
