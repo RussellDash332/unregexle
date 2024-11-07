@@ -57,7 +57,7 @@ def loop_resolve(f, resolution, lim, *args):
 def get_windows_browser():
     service = Service()
     options = webdriver.ChromeOptions()
-    options.add_argument('--headless') # to debug, comment this line
+    #options.add_argument('--headless') # to debug, comment this line
     options.add_experimental_option('excludeSwitches', ['enable-logging'])
     browser = webdriver.Chrome(service=service, options=options)
     return browser
@@ -455,6 +455,7 @@ def run(supplier):
                 chains.click(hexagons[idx+1])
         else:
             chains.send_keys(answer[idx])
+        if idx % 100 == 0: chains.perform() # to avoid timeout error
     chains.perform()
     logging.info(f'Solution for Regexle size {size} applied!')
     time.sleep(5)
@@ -465,7 +466,7 @@ def run(supplier):
     soup = BeautifulSoup(browser.page_source, 'html.parser')
     completion = soup.findAll('div', class_='completion_element_center')[1]
     for div_id in ['puzzle_day', 'completion_time', 'hint_count']:
-        text = completion.find('div', id=div_id).text.strip().replace('Puzzle:', 'regexle.com')
+        text = completion.find('div', id=div_id).text.strip().replace('Puzzle:', f'[regexle.com]({link})')
         if text: contents.append(text)
 
     assert contents, 'Unregexle is not powerful enough to solve this menace :(\n'
@@ -492,8 +493,6 @@ if __name__ == '__main__':
         send(TOKEN, chat_id, f'{verdict}\n\n#unregexle' \
              .replace('.', '\\.') \
              .replace('*', '\\*') \
-             .replace('(', '\\(') \
-             .replace(')', '\\)') \
              .replace('#', '\\#') \
              .replace('+', '\\+') \
              .replace('-', '\\-') \
