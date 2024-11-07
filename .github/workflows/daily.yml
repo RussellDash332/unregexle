@@ -22,7 +22,7 @@ jobs:
           chromium-browser --version > version.txt
           pip install -r requirements.txt
       - name: It's Regexle time!
-        run: for side in {1..32}; do python main.py $side; done
+        run: for side in {17..32}; do python main.py $side; done
         env:
           TOKEN: ${{ secrets.TOKEN }}
           CHATS: ${{ secrets.CHATS }}

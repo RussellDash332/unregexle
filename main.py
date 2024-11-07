@@ -50,7 +50,7 @@ def loop_resolve(f, resolution, lim, *args):
     try:
         return f(*args)
     except Exception as e:
-        print(f'Issue found: {type(e).__name__}: {str(e)}')
+        print(f'Issue found: {type(e).__name__}: {str(e)}', flush=True)
         resolution()
         return loop_resolve(f, resolution, lim-1, *args)
 
@@ -441,16 +441,20 @@ def run(supplier):
     t2 = time.time()
     answer = solve(rules)
     logging.info('Found answer:\n')
-    print(format_answer(answer))
-    print()
+    print(format_answer(answer), flush=True)
+    print(flush=True)
 
     # apply solution!
     t3 = time.time()
     hexagons = browser.find_elements(By.CLASS_NAME, 'board_entry')
     chains = ActionChains(browser)
     chains.click(hexagons[0])
-    for idx in range(min(len(answer), len(hexagons))):
-        chains.send_keys(answer[idx])  
+    for idx in range(len(answer)):
+        if answer[idx] == '.':
+            if idx+1 < len(hexagons):
+                chains.click(hexagons[idx+1])
+        else:
+            chains.send_keys(answer[idx])
     chains.perform()
     logging.info(f'Solution for Regexle size {size} applied!')
     time.sleep(5)
@@ -476,25 +480,22 @@ if __name__ == '__main__':
     supplier = {'Windows': get_windows_browser, 'Linux': get_linux_browser}.get(curr_os)
     assert supplier, f'Unregexle not supported for {curr_os} yet :('
 
-    try:
-        t_parse, t_algo, t_selenium, verdict = loop_resolve(run, lambda: None, ATTEMPT_LIMIT, supplier)
-        print(f'Time to parse Unregexle board: {t_parse}')
-        print(f'Time to run backtracking: {t_algo}')
-        print(f'Time to apply solution: {t_selenium}')
-        print()
-        print(verdict.replace(' '*3, ' '))
+    t_parse, t_algo, t_selenium, verdict = loop_resolve(run, lambda: None, ATTEMPT_LIMIT, supplier)
+    print(f'Time to parse Unregexle board: {t_parse}', flush=True)
+    print(f'Time to run backtracking: {t_algo}', flush=True)
+    print(f'Time to apply solution: {t_selenium}', flush=True)
+    print(flush=True)
+    print(verdict.replace(' '*3, ' '), flush=True)
 
-        # Telebot integration
-        for chat_id in CHATS.split(','):
-            send(TOKEN, chat_id, f'{verdict}\n\n#unregexle' \
-                 .replace('.', '\\.') \
-                 .replace('*', '\\*') \
-                 .replace('(', '\\(') \
-                 .replace(')', '\\)') \
-                 .replace('#', '\\#') \
-                 .replace('+', '\\+') \
-                 .replace('-', '\\-') \
-                 .replace('=', '\\=')
-                )
-    except Exception as e:
-        logging.info(f'{type(e).__name__}: {str(e)}')
+    # Telebot integration
+    for chat_id in CHATS.split(','):
+        send(TOKEN, chat_id, f'{verdict}\n\n#unregexle' \
+             .replace('.', '\\.') \
+             .replace('*', '\\*') \
+             .replace('(', '\\(') \
+             .replace(')', '\\)') \
+             .replace('#', '\\#') \
+             .replace('+', '\\+') \
+             .replace('-', '\\-') \
+             .replace('=', '\\=')
+            )
