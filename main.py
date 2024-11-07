@@ -1,9 +1,9 @@
+import argparse
 import logging
 import os
 import platform
 import re
 import requests
-import string
 import sys
 import time
 from pprint import pprint
@@ -27,17 +27,6 @@ logging.basicConfig(
 # Constants
 sys.setrecursionlimit(5000)
 ATTEMPT_LIMIT = 1
-
-def get_size():
-    if len(sys.argv) == 1:  size = 3
-    else:                   size = int(sys.argv[1])
-    assert 1 <= size <= 32, 'Size must be between 1 and 32 exclusive'
-    return size
-
-def get_day():
-    if len(sys.argv) < 3:   day = '' # today's
-    else:                   day = int(sys.argv[2])
-    return day
 
 def loop_resolve(f, resolution, lim, *args):
     if lim == 0:
@@ -338,18 +327,20 @@ def solve(rules, n):
         #debug_hexagon()
     return display()
 
-def format_answer(answer, n, space=True):
+def format_answer(answer, n, space=True, spoiler=False):
     idx = 0
     rows = []
     for i in range(2*n-1):
-        tmp = [' '*abs(n-1-i)]
+        tmp = ['||'] if spoiler else [' '*abs(n-1-i)]
         for j in range(2*n-1-abs(n-1-i)):
             tmp.append((answer[idx] if idx < len(answer) else '.')+' '*space)
             idx += 1
+        if spoiler:
+            tmp.append('||')
         rows.append(''.join(tmp))
     return '\n'.join(rows)
 
-def run(n, day, supplier):
+def run(n, day, spoiler, supplier):
     # start browser
     browser = supplier()
     browser.maximize_window()
@@ -369,7 +360,7 @@ def run(n, day, supplier):
     except Exception as e:
         logging.info(f'{type(e).__name__}: {e}')
         browser.quit()
-        return run(n, day, supplier)
+        return run(n, day, spoiler, supplier)
 
     # parse source page
     t1 = time.time()
@@ -399,7 +390,7 @@ def run(n, day, supplier):
         if idx % 100 == 0:
             chains.perform() # to avoid timeout error
     chains.perform()
-    logging.info(f'Solution for Regexle size {n} applied!')
+    logging.info(f'Solution for Regexle side={n} applied!')
 
     # share results! reload browser page
     t4 = time.time()
@@ -412,18 +403,21 @@ def run(n, day, supplier):
             contents.append(text)
 
     assert contents, 'Unregexle is not powerful enough to solve this menace :(\n'
-    contents.append(format_answer('🟩'*(3*n**2-3*n+1), n, space=False).replace(' ', ' '*3))
+    if spoiler:
+        contents.append(format_answer(answer, n, spoiler=True))
+    else:
+        contents.append(format_answer('🟩'*(3*n**2-3*n+1), n, space=False).replace(' ', ' '*3))
 
     browser.quit()
     logging.info(f'All done!')
     return round(t2-t1, 5), round(t3-t2, 5), round(t4-t3, 5), '\n'.join(contents)
 
-def main(n, day):
+def main(n, day, spoiler):
     curr_os = (pf:=platform.platform())[:pf.find('-')]
     supplier = {'Windows': get_windows_browser, 'Linux': get_linux_browser}.get(curr_os)
     assert supplier, f'Unregexle not supported for {curr_os} yet :('
 
-    t_parse, t_algo, t_selenium, verdict = loop_resolve(run, lambda: None, ATTEMPT_LIMIT, n, day, supplier)
+    t_parse, t_algo, t_selenium, verdict = loop_resolve(run, lambda: None, ATTEMPT_LIMIT, n, day, spoiler, supplier)
 
     print(f'Time to parse Unregexle board: {t_parse}', flush=True)
     print(f'Time to run backtracking: {t_algo}', flush=True)
@@ -442,4 +436,11 @@ def main(n, day):
             )
 
 if __name__ == '__main__':
-    main(get_size(), get_day())
+    parser = argparse.ArgumentParser(prog='unregexle', description='Solve Regexle in no time')
+    parser.add_argument('-n', '--side', default=3, help='Size of puzzle (1-32)')
+    parser.add_argument('-d', '--day', default='', help='Day of puzzle')
+    parser.add_argument('-s', '--spoiler', default=0, help='Enable spoilers in output (0 or 1)')
+    args = parser.parse_args()
+    n = int(args.side)
+    assert 1 <= n <= 32, 'Size must be between 1 and 32 inclusively'
+    main(n, args.day, int(args.spoiler))
