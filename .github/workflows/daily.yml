@@ -2,7 +2,7 @@ name: Daily unregexle
 on:
   workflow_dispatch:
   schedule:
-    - cron: "55 15 * * *" # 4PM GMT - 5min
+    - cron: "45 15 * * *" # 4PM GMT - 15min
 jobs:
   regexle:
     runs-on: ubuntu-latest
@@ -21,7 +21,7 @@ jobs:
           sudo apt install -y chromium-browser
           pip install -r requirements.txt
       - name: It's Regexle time!
-        run: python main.py -s 1
+        run: python main.py -s 1 -c 1
         env:
           TOKEN: ${{ secrets.TOKEN }}
           CHATS: ${{ secrets.CHATS }}

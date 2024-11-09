@@ -497,7 +497,14 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--day', default='', help='Day of puzzle')
     parser.add_argument('-s', '--spoiler', default=0, help='Enable spoilers in output (0 or 1)')
     parser.add_argument('-q', '--quick', default=0, help='Enable quick mode to ignore the Selenium typing part (0 or 1)')
+    parser.add_argument('-c', '--cron', default=0, help='Delay solving until new day (0 or 1)')
     args = parser.parse_args()
     n = int(args.side)
     assert 1 <= n <= 32, 'Size must be between 1 and 32 inclusively'
+
+    if int(args.cron):
+        while (t:=int(time.time()%86400))//3600 < 16: # not 4PM GMT yet
+            time.sleep(10)
+            logging.info(f'Waiting... Current time: {str(t//3600).zfill(2)}:{str(t//60%60).zfill(2)}:{str(t%60).zfill(2)} GMT')
+
     main(n, args.day, int(args.spoiler), int(args.quick))
