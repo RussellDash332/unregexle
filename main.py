@@ -1,4 +1,5 @@
 import argparse
+import itertools
 import logging
 import os
 import platform
@@ -27,7 +28,7 @@ logging.basicConfig(
 
 # Constants
 sys.setrecursionlimit(5000)
-ATTEMPT_LIMIT = 1
+ATTEMPT_LIMIT = 3
 
 def loop_resolve(f, resolution, lim, *args):
     if lim == 0:
@@ -290,16 +291,20 @@ def solve(rules, n):
                 tmp[i] = sols[i].pop()
         return tmp
 
-    def get_current_exp(ax, k):
+    def get_current_exp(ax, k, include_pos=False):
         '''
         Helper function to get the state of row `k` in the given axis `ax`
         '''
-        idx, tmp = 0, []
+        idx, tmp, pos = 0, [], []
         while (rule_pos:=(ax, k, idx)) in rule2hexagon:
             i, j = rule2hexagon[rule_pos]
             tmp.append(hexagons[i][j].get('v', '.'))
+            pos.append((i, j))
             idx += 1
-        return tmp
+        if include_pos:
+            return tmp, pos
+        else:
+            return tmp
 
     def derive_middle():
         for ax in 'xyz':
@@ -321,18 +326,26 @@ def solve(rules, n):
             for j in range(len(hexagons[i])):
                 h = hexagons[i][j]
                 if 'v' not in h:
-                    dot_counts = set()
+                    dots = []
                     checks = []
                     for ax in 'xyz':
                         k, _ = h[ax]
                         checks.append((ax, k))
-                        tmp = get_current_exp(ax, k)
-                        dot_counts.add(tmp.count('.'))
-                    if dot_counts == {1}:
-                        for u in string.ascii_uppercase:
-                            hexagons[i][j]['v'] = u
+                        tmp, pos = get_current_exp(ax, k, include_pos=True)
+                        dots.append([pos[x] for x in range(len(tmp)) if tmp[i] == '.'])
+                    if max(map(len, dots)) < 3:
+                        flatten_dots = []
+                        for dot in dots:
+                            flatten_dots.extend(dot)
+                        for u in itertools.product(string.ascii_uppercase, repeat=len(flatten_dots)):
+                            for x in enumerate(u):
+                                i, j = flatten_dots[x]
+                                hexagons[i][j]['v'] = u[x]
                             if validate(checks, verbose=False):
                                 break
+                            for x in enumerate(u):
+                                i, j = flatten_dots[x]
+                                del hexagons[i][j]['v']
 
     def validate(checks=[(ax, k) for ax in 'xyz' for k in range(2*n-1)], verbose=True):
         '''
