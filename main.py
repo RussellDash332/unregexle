@@ -28,7 +28,7 @@ logging.basicConfig(
 
 # Constants
 sys.setrecursionlimit(5000)
-ATTEMPT_LIMIT = 3
+ATTEMPT_LIMIT = 2
 
 def loop_resolve(f, resolution, lim, *args):
     if lim == 0:
@@ -326,26 +326,26 @@ def solve(rules, n):
             for j in range(len(hexagons[i])):
                 h = hexagons[i][j]
                 if 'v' not in h:
-                    dots = []
-                    checks = []
+                    dots, checks = [], set()
                     for ax in 'xyz':
                         k, _ = h[ax]
-                        checks.append((ax, k))
                         tmp, pos = get_current_exp(ax, k, include_pos=True)
-                        dots.append([pos[x] for x in range(len(tmp)) if tmp[i] == '.'])
+                        dots.append([pos[x] for x in range(len(tmp)) if tmp[x] == '.'])
+                        checks |= {(ax2, hexagons[i2][j2][ax2][0]) for i2, j2 in dots[-1] for ax2 in 'xyz'}
                     if max(map(len, dots)) < 3:
-                        flatten_dots = []
+                        flatten_dots = set()
                         for dot in dots:
-                            flatten_dots.extend(dot)
+                            flatten_dots |= set(dot)
+                        flatten_dots = list(flatten_dots)
                         for u in itertools.product(string.ascii_uppercase, repeat=len(flatten_dots)):
-                            for x in enumerate(u):
+                            for x in range(len(u)):
                                 i, j = flatten_dots[x]
                                 hexagons[i][j]['v'] = u[x]
                             if validate(checks, verbose=False):
                                 break
-                            for x in enumerate(u):
+                            for x in range(len(u)):
                                 i, j = flatten_dots[x]
-                                del hexagons[i][j]['v']
+                                if 'v' in hexagons[i][j]: del hexagons[i][j]['v']
 
     def validate(checks=[(ax, k) for ax in 'xyz' for k in range(2*n-1)], verbose=True):
         '''
@@ -426,6 +426,7 @@ def run(n, day, spoiler, quick, supplier):
     soup = BeautifulSoup(browser.page_source, 'html.parser')
     rules = parse(soup, n)
     logging.info(f'Ruleset obtained!')
+    logging.info(rules)
 
     # prep Unregexle
     t2 = time.time()
