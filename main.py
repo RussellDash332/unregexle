@@ -426,7 +426,7 @@ def run(n, day, spoiler, quick, supplier):
     soup = BeautifulSoup(browser.page_source, 'html.parser')
     rules = parse(soup, n)
     logging.info(f'Ruleset obtained!')
-    logging.info(rules)
+    print(rules, flush=True)
 
     # prep Unregexle
     t2 = time.time()
