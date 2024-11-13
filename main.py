@@ -332,7 +332,7 @@ def solve(rules, n):
                         tmp, pos = get_current_exp(ax, k, include_pos=True)
                         dots.append([pos[x] for x in range(len(tmp)) if tmp[x] == '.'])
                         checks |= {(ax2, hexagons[i2][j2][ax2][0]) for i2, j2 in dots[-1] for ax2 in 'xyz'}
-                    if max(map(len, dots)) < 3:
+                    if max(map(len, dots)) < 4:
                         flatten_dots = set()
                         for dot in dots:
                             flatten_dots |= set(dot)
