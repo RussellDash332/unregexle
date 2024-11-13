@@ -339,13 +339,13 @@ def solve(rules, n):
                         flatten_dots = list(flatten_dots)
                         for u in itertools.product(string.ascii_uppercase, repeat=len(flatten_dots)):
                             for x in range(len(u)):
-                                i, j = flatten_dots[x]
-                                hexagons[i][j]['v'] = u[x]
+                                i2, j2 = flatten_dots[x]
+                                hexagons[i2][j2]['v'] = u[x]
                             if validate(checks, verbose=False):
                                 break
                             for x in range(len(u)):
-                                i, j = flatten_dots[x]
-                                if 'v' in hexagons[i][j]: del hexagons[i][j]['v']
+                                i2, j2 = flatten_dots[x]
+                                if 'v' in hexagons[i2][j2]: del hexagons[i2][j2]['v']
 
     def validate(checks=[(ax, k) for ax in 'xyz' for k in range(2*n-1)], verbose=True):
         '''
