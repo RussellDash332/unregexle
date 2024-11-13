@@ -427,6 +427,7 @@ def run(n, day, spoiler, quick, supplier):
     rules = parse(soup, n)
     logging.info(f'Ruleset obtained!')
     print(rules, flush=True)
+    print(flush=True)
 
     # prep Unregexle
     t2 = time.time()
