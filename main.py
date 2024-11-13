@@ -426,7 +426,10 @@ def run(n, day, spoiler, quick, supplier):
     soup = BeautifulSoup(browser.page_source, 'html.parser')
     rules = parse(soup, n)
     logging.info(f'Ruleset obtained!')
-    print(rules, flush=True)
+    for ax in 'xyz':
+        print(f'Rules for {ax} axis:', flush=True)
+        for rule in rules[ax]:
+            print('\t', rule, flush=True)
     print(flush=True)
 
     # prep Unregexle
