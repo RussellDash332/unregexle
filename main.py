@@ -332,11 +332,11 @@ def solve(rules, n):
                         tmp, pos = get_current_exp(ax, k, include_pos=True)
                         dots.append([pos[x] for x in range(len(tmp)) if tmp[x] == '.'])
                         checks |= {(ax2, hexagons[i2][j2][ax2][0]) for i2, j2 in dots[-1] for ax2 in 'xyz'}
-                    if max(map(len, dots)) < 4:
-                        flatten_dots = set()
-                        for dot in dots:
-                            flatten_dots |= set(dot)
-                        flatten_dots = list(flatten_dots)
+                    flatten_dots = set()
+                    for dot in dots:
+                        flatten_dots |= set(dot)
+                    flatten_dots = list(flatten_dots)
+                    if len(flatten_dots) < 4:
                         for u in itertools.product(string.ascii_uppercase, repeat=len(flatten_dots)):
                             for x in range(len(u)):
                                 i2, j2 = flatten_dots[x]
@@ -378,10 +378,10 @@ def solve(rules, n):
     # then continue to derive the remaining hexagons when possible.
     # Repeat for sufficiently many times to handle propagated information
     # and then we should be good!
-    for _ in range(2*n):
+    for i in range(2*n):
         handle_outer()
         derive_middle()
-        cancel_noise()
+        if i%2: cancel_noise()
         #debug_hexagon()
     return display(), validate()
 
