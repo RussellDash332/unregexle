@@ -443,14 +443,14 @@ def run(n, day, spoiler, quick, supplier):
     t3 = time.time()
     if not correct:
         print('Unregexle is not powerful enough to solve this menace :(\n', flush=True)
-        return round(t2-t1, 5), round(t3-t2, 5), None, None
+        return round(t2-t1, 5), round(t3-t2, 5), None, None, False
     if quick:
         print(f'Unregexle has solved Regexle side={n}\n', flush=True)
         message = '\n'.join([
             f'[regexle.com]({link})',
             format_answer(answer, n, spoiler=True)
         ])
-        return round(t2-t1, 5), round(t3-t2, 5), None, None
+        return round(t2-t1, 5), round(t3-t2, 5), None, None, True
     hexagons = browser.find_elements(By.CLASS_NAME, 'board_entry')
     chains = ActionChains(browser)
     chains.click(hexagons[0])
@@ -483,14 +483,14 @@ def run(n, day, spoiler, quick, supplier):
 
     browser.quit()
     logging.info(f'All done!')
-    return round(t2-t1, 5), round(t3-t2, 5), round(t4-t3, 5), '\n'.join(contents)
+    return round(t2-t1, 5), round(t3-t2, 5), round(t4-t3, 5), '\n'.join(contents), True
 
 def main(n, day, spoiler, quick):
     curr_os = (pf:=platform.platform())[:pf.find('-')]
     supplier = {'Windows': get_windows_browser, 'Linux': get_linux_browser}.get(curr_os)
     assert supplier, f'Unregexle not supported for {curr_os} yet :('
 
-    t_parse, t_algo, t_selenium, verdict = loop_resolve(run, lambda: None, ATTEMPT_LIMIT, n, day, spoiler, quick, supplier)
+    t_parse, t_algo, t_selenium, verdict, solved = loop_resolve(run, lambda: None, ATTEMPT_LIMIT, n, day, spoiler, quick, supplier)
 
     print(f'Time to parse Unregexle board: {t_parse}', flush=True)
     print(f'Time to run backtracking: {t_algo}', flush=True)
@@ -508,6 +508,8 @@ def main(n, day, spoiler, quick):
                     .replace('-', '\\-') \
                     .replace('=', '\\=')
                 )
+
+    return t_parse, t_algo, t_selenium, verdict, solved
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='unregexle', description='Solve Regexle in no time')
