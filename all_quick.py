@@ -7,7 +7,7 @@ while (t:=int(time.time()%86400))//3600 < 16: # not 4PM GMT yet
 
 result = []
 for side in range(1, 33):
-    t_parse, t_algo, _, _, solved = main(day='', n=side, quick=1, spoiler=False)
+    t_parse, t_algo, _, _, solved = main(day='', n=side, quick=1, spoiler=True)
     result.append((t_parse, t_algo, solved))
 
 unsolved = [i+1 for i in range(len(result)) if not result[i][2]]
