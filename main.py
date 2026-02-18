@@ -49,7 +49,7 @@ def get_windows_browser():
     return browser
 
 def get_linux_browser():
-    chrome_service = Service(ChromeDriverManager(chrome_type='chromium').install())
+    service = Service()
     chrome_options = Options()
     options = [
         "--headless",
@@ -61,7 +61,7 @@ def get_linux_browser():
         "--disable-dev-shm-usage"
     ]
     for option in options: chrome_options.add_argument(option)
-    browser = webdriver.Chrome(service=chrome_service, options=chrome_options)
+    browser = webdriver.Chrome(service=service, options=chrome_options)
     browser.execute_cdp_cmd('Emulation.setTimezoneOverride', {'timezoneId': 'Singapore'})
     return browser
 
