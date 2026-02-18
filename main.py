@@ -51,8 +51,9 @@ def get_windows_browser():
 def get_linux_browser():
     service = Service()
     chrome_options = Options()
+    chrome_options.binary_location = "/usr/bin/chromium"
     options = [
-        "--headless",
+        "--headless=new",
         "--disable-gpu",
         "--window-size=1920,1200",
         "--ignore-certificate-errors",
